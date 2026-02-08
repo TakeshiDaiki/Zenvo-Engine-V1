@@ -1,0 +1,33 @@
+# --- Private Data ---
+.env
+*.json
+!example.json
+
+# --- Python & Environment ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.venv/
+
+# --- IDEs & Editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- PyInstaller & Compilation ---
+# Estas carpetas se crean al compilar y no deben ir a GitHub
+build/
+dist/
+*.spec
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/

@@ -1,0 +1,4 @@
+ccxt>=4.5.36
+pandas>=2.2.0
+customtkinter>=5.2.2
+python-dotenv>=1.0.1
