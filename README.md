@@ -106,6 +106,7 @@ This project is under the MIT License. You may use, modify, and distribute freel
 
 **Jose Salazar**
 **GitHub:** https://github.com/TakeshiDaiki
+
 **LinkedIn:** https://www.linkedin.com/in/jose-salazar
 
 ### ⚠️ Disclaimer
