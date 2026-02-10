@@ -169,7 +169,7 @@ You are free to use, modify, and distribute it.
 
 **GitHub:** https://github.com/TakeshiDaiki
 
-**LinkedIn:**
+**LinkedIn:** https://www.linkedin.com/in/jose-salazar-60ab21283/
 
 #### ⚠️ Disclaimer
 
