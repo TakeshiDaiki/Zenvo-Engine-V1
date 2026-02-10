@@ -1,131 +1,123 @@
 import time
-import sys
-import pandas as pd
 from core.exchange import BinanceClient
-from ccxt import NetworkError, ExchangeError
+from logic.indicators import add_indicators
 
 
-def calculate_indicators(series, period: int = 14):
-    """
-    Calculates RSI for entry and EMA 200 for trend filtering.
-    """
-    if not isinstance(series, pd.Series):
-        series = pd.Series(series)
-
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-
-    alpha_val = 1 / float(period)
-    avg_gain = gain.ewm(alpha=alpha_val, min_periods=period, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=alpha_val, min_periods=period, adjust=False).mean()
-
-    rs_val = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs_val))
-    ema_200 = series.ewm(span=200, adjust=False).mean()
-
-    return rsi, ema_200
-
-
+# --- CORE ENGINE FUNCTION ---
 def run_bot(config):
     """
-    Zenvo Engine: RSI Hybrid Strategy + Trailing Profit + Secure Shutdown.
+    Main entry point for the trading logic.
+    Includes safety filters to prevent the thread from dying after a buy order.
     """
-    gui = config['instance']
-    client = BinanceClient(config['api_key'], config['secret_key'], config['mode'])
+    # Extraction of settings
+    api_key = config.get('api_key')
+    secret_key = config.get('secret_key')
+    symbol = config.get('symbol', 'BTC/USDT')
+    usd_amount = float(config.get('usd_amount', 11.0))
+    tf = config.get('timeframe', '1m')
+    user_sl = float(config.get('sl', 1.5))
+    user_tp = float(config.get('tp', 3.0))
+    mode = config.get('mode', 'testnet')
+    gui_instance = config.get('instance')
 
-    client.exchange.options['recvWindow'] = 60000
-    client.exchange.enableRateLimit = True
-
-    # User Parameters
-    user_sl = float(config.get('sl', 1.5))  # Trailing Gap
-    user_tp = float(config.get('tp', 3.0))  # Activation Trigger
+    rsi_threshold = 40.0
     sep = "=" * 45
 
     try:
-        bal_info = client.exchange.fetch_balance()
-        initial_bal = float(bal_info.get('USDT', {}).get('free', 0.0))
-    except (NetworkError, ExchangeError):
-        initial_bal = 0.0
+        # Initializing connection
+        client_manager = BinanceClient(api_key=api_key, secret_key=secret_key, mode=mode)
+        current_bal = client_manager.get_balance("USDT")
 
-    # --- HEADER ---
-    print(f"\n{sep}")
-    print(f"✅ AUTHENTICATION SUCCESSFUL")
-    print(f"Market Selected: {config['symbol']}")
-    print(f"{sep}")
-    print(f"🚀 ZENVO CORE ONLINE - TRADING MODE")
-    print(f"{sep}")
-    print(f"📊 MARKET: {config['symbol']} | TF: {config.get('timeframe', '1m')}")
-    print(f"💵 INITIAL BALANCE: {initial_bal:,.2f} USDT")
-    print(f"💰 INVESTMENT: {config['usd_amount']} USDT")
-    print(f"🛡️ TRAILING GAP: {user_sl}% | 🎯 TP ACTIVATION: {user_tp}%")
-    print(f"{sep}\n")
+        # Startup Header
+        print(f"\n{sep}")
+        print("✅ AUTHENTICATION SUCCESSFUL")
+        print(sep)
+        print("🚀 ZENVO CORE ONLINE - TRADING MODE")
+        print(sep)
+        print(f"📊 MARKET: {symbol} | TF: {tf}")
+        print(f"💵 INITIAL BALANCE: {current_bal:,.2f} USDT")
+        print(f"💰 INVESTMENT: {usd_amount} USDT")
+        print(f"🛡️ SL (Trailing Gap): {user_sl} % | 🎯 TP Activation: {user_tp} %")
+        print(f"{sep}\n")
 
-    in_position, entry_price, max_price = False, 0.0, 0.0
-    trailing_activated = False
+        # Position state variables
+        in_position = False
+        entry_price = 0
+        max_price = 0
+        trailing_activated = False
 
-    # MAIN LOOP
-    while gui.bot_running:
-        try:
-            ohlcv = client.exchange.fetch_ohlcv(config['symbol'], config.get('timeframe', '1m'), limit=250)
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        # Main Trading Loop
+        while gui_instance.bot_running:
+            try:
+                # 1. Fetch data and calculate indicators
+                df = client_manager.get_klines(symbol, tf)
+                if df is None or df.empty:
+                    time.sleep(2)
+                    continue
 
-            rsi_series, ema_series = calculate_indicators(df['close'])
-            price = float(df['close'].iloc[-1])
-            rsi_val = float(rsi_series.iloc[-1])
-            ema_val = float(ema_series.iloc[-1])
+                df = add_indicators(df)
+                rsi_val = df['rsi'].iloc[-1]
+                ema_9_v = df['ema9'].iloc[-1]
+                current_price = df['close'].iloc[-1]
 
-            if not in_position:
-                # HYBRID STRATEGY
-                is_standard = rsi_val <= 30.0
-                is_sensitive = rsi_val <= 35.0 and price > ema_val
-
-                if is_standard or is_sensitive:
-                    mode = "STANDARD" if is_standard else "SENSITIVE"
-                    sys.stdout.write(f"\n🎯 SIGNAL [{mode}]: RSI {rsi_val:.2f}. Buying...")
-
-                    if client.create_order(config['symbol'], 'buy', config['usd_amount']):
-                        entry_price, max_price, in_position = price, price, True
-                        trailing_activated = False
-                        sys.stdout.write(f" 🟢 SUCCESS @ {entry_price:,.2f}\n")
+                # 2. Entry Logic (If not in a trade)
+                if not in_position:
+                    if rsi_val <= rsi_threshold and current_price > ema_9_v:
+                        print(f"\n🎯 SIGNAL DETECTED: RSI {rsi_val:.2f} | Price > EMA 9")
+                        if client_manager.create_order(symbol, 'buy', usd_amount):
+                            entry_price = current_price
+                            max_price = current_price
+                            in_position = True
+                            trailing_activated = False
+                            print(f"🟢 BOUGHT @ {entry_price:,.2f} USDT")
                     else:
-                        sys.stdout.write(" ❌ ORDER FAILED\n")
+                        # Real-time monitoring line
+                        print(
+                            f"\r🕒 {time.strftime('%H:%M:%S')} | {symbol} | PR: {current_price:,.2f} | RSI: {rsi_val:.2f} | WAITING...",
+                            end='')
 
-                status_msg = f"WAITING (RSI: {rsi_val:.2f})"
+                # 3. Position Management (If in a trade)
+                else:
+                    try:
+                        # Update maximum price reached for trailing calculation
+                        if current_price > max_price:
+                            max_price = current_price
 
-            else:
-                if price > max_price:
-                    max_price = price
+                        # Calculate PnL and Drawdown from peak
+                        profit_pct = ((current_price - entry_price) / entry_price) * 100
+                        drawdown = ((max_price - current_price) / max_price) * 100
 
-                pnl = ((price - entry_price) / entry_price) * 100
-                drawdown = ((max_price - price) / max_price) * 100
+                        # Status update while in position
+                        status_msg = "TRAILING ACTIVE" if trailing_activated else "WAITING TP"
+                        print(
+                            f"\r📈 POS: {profit_pct:+.2f}% | MAX: {max_price:,.2f} | DD: {drawdown:.2f}% | {status_msg}",
+                            end='')
 
-                # Check for TP Activation
-                if not trailing_activated and pnl >= user_tp:
-                    trailing_activated = True
-                    sys.stdout.write(f"\n🔥 TP REACHED ({pnl:.2f}%). Trailing Profit Active!\n")
+                        # Step A: Check for Trailing Activation (Take Profit reached)
+                        if not trailing_activated and profit_pct >= user_tp:
+                            trailing_activated = True
+                            print(f"\n🎯 TP REACHED! Trailing Stop Activated at {user_tp}% profit.")
 
-                # EXIT LOGIC
-                if drawdown >= user_sl:
-                    exit_reason = "TRAILING PROFIT" if trailing_activated else "STOP LOSS"
-                    sys.stdout.write(f"\n🔴 EXIT [{exit_reason}] | Final PnL: {pnl:.2f}%\n")
-                    # (client.create_order to sell is here)
-                    in_position = False
+                        # Step B: Check for Exit (Stop Loss or Trailing Stop hit)
+                        if drawdown >= user_sl:
+                            reason = "TRAILING STOP" if trailing_activated else "STOP LOSS"
+                            print(f"\n🔴 SELLING: {reason} | Final PnL: {profit_pct:.2f}%")
+                            if client_manager.create_order(symbol, 'sell', usd_amount):
+                                in_position = False
+                                trailing_activated = False
+                                print(f"✅ POSITION CLOSED @ {current_price:,.2f} USDT")
+                                print(f"{sep}\n")
 
-                state = "TRAILING" if trailing_activated else "WAITING TP"
-                status_msg = f"ON ({pnl:.2f}%) | Max: {max_price:,.2f} | {state}"
+                    except Exception as pos_err:
+                        print(f"\n⚠️ POSITION MGMT ERROR: {pos_err}")
 
-            sys.stdout.write(f"\r🕒 {time.strftime('%H:%M:%S')} | {status_msg}")
-            sys.stdout.flush()
+                time.sleep(1)  # 1-second scanning frequency
 
-            time.sleep(1)
+            except Exception as loop_err:
+                print(f"\n⚠️ LOOP ERROR: {loop_err}")
+                time.sleep(5)  # Wait before retrying on connection errors
 
-        except (NetworkError, ExchangeError) as e:
-            sys.stdout.write(f"\n⚠️ API ERROR: {str(e)}\n")
-            time.sleep(5)
-        except Exception as e:
-            sys.stdout.write(f"\n⚠️ SYSTEM ERROR: {str(e)}\n")
-            time.sleep(5)
+        print("\n🛑 BOT STOPPED BY USER.")
 
-    # --- RESTORED SECURE SHUTDOWN ---
-    sys.stdout.write(f"\n{sep}\n🛑 ZENVO ENGINE OFFLINE\n{sep}\n")
+    except Exception as crit_err:
+        print(f"\n❌ CRITICAL ERROR: {crit_err}")

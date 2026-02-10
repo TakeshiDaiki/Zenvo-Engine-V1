@@ -1,114 +1,179 @@
-### 🚀 Zenvo Engine V1 – Hybrid Algorithmic Trading System
+### 🚀 Zenvo Engine V1 – Algorithmic Trend-Following Trading System
 
-Zenvo Engine is a high-performance trading system designed for Binance Spot markets.
-It combines quantitative analysis with adaptive strategies to optimize entries and maximize profits using 
-a dynamic Trailing Stop and Trailing Profit ecosystem.
+Zenvo Engine is a high-performance algorithmic trading system designed for Binance Spot markets.
+It implements a **Trend-Follower Rebound strategy**, combining momentum confirmation with corrective
+entry logic to capture high-probability rebounds in bullish conditions.
 
-### 🚀 Evolution of: Pantuflito-Bot
+The system focuses on **capital protection**, **trend continuation**, and **resilient execution**
+through a dynamic trailing ecosystem and fault-tolerant architecture.
+
+---
+
+### 🧠 Strategy Profile – Trend-Follower Rebound
+
+Zenvo Engine is designed to enter trades **after corrective pullbacks within an active bullish trend**,
+filtering market noise and avoiding euphoric price peaks.
+
+#### Entry Logic
+
+- **Momentum Filter**
+  - Price must be above **EMA 9**
+  - Confirms immediate bullish strength
+
+- **Rebound Filter**
+  - **RSI ≤ 40**
+  - Ensures entry occurs after a controlled correction, not at market tops
+
+This combination allows the bot to enter **with the trend, but not late**.
+
+---
 
 ### 🧠 Dynamic Position Management
 
-Unlike traditional bots with fixed parameters, Zenvo Engine implements dynamic position management to protect capital 
-and let profits run:
+Zenvo Engine uses a fully dynamic exit system that adapts to price evolution in real time,
+allowing profits to run while protecting capital.
 
 #### Dynamic Trailing Loss (Protection)
-From the moment of purchase, the bot tracks the highest price reached (max_price). 
-The exit level is constantly recalculated 1.5% below the peak, 
-automatically securing profits if the price continues rising.
 
-#### Dynamic Trailing Profit (Harvesting)
-Once the price reaches the activation target (3.0%), the bot enters “chase mode,”
-allowing profits to grow and closing the position only when the market retraces 1.5% from its new high.
+- Active immediately after purchase
+- Tracks the highest price reached (`max_price`)
+- Exit level is recalculated **1.5% below the peak**
+- Locks in gains and limits downside on reversals
 
-### 📊 Hybrid Entry Strategy
+#### Dynamic Trailing Profit (Trend Expansion)
 
-### Zenvo Engine adjusts its buy signal requirements according to market context:
+- Activated once price reaches **+3.0%**
+- Enables aggressive trend-following behavior
+- Position is closed only if price retraces **1.5% from the new high**
 
-| Component        |  Configuration |  Mode      |  Description                                              |
-|------------------|----------------|------------|-----------------------------------------------------------|
-| **EMA 200**      | Trend Filter   | Structural | Determines if the market is bullish or weak.              |
-| **RSI (Hybrid)** | < 35.0         | **Hunter** | Activated in bullish trend (slow days / Uptrend).         |
-| **RSI (Hybrid)** | < 30.0         | **Sniper** | Activated in bearish or sideways trends (maximum safety). |
-| **Trailing Gap** | 1.5%           | Dynamic    | Distance from peak price to trigger sell.                 |
-| **TP Trigger**   | 3.0%           | Dynamic    | Threshold to activate trend-following mode.               |
+This system avoids fixed take-profits and adapts naturally to market conditions.
 
+---
+
+### 🌍 Market Explorer (High Liquidity Assets)
+
+Zenvo Engine includes optimized access to **20 high-liquidity Binance Spot pairs** to ensure
+tight spreads, fast execution, and reliable order fills:
+
+**Trading Pairs**
+
+- BTC/USDT                   
+- ETH/USDT
+- BNB/USDT
+- SOL/USDT
+- XRP/USDT
+- ADA/USDT
+- AVAX/USDT
+- DOGE/USDT
+- DOT/USDT
+- MATIC/USDT
+- LINK/USDT
+- SHIB/USDT
+- LTC/USDT
+- TRX/USDT
+- NEAR/USDT
+- ATOM/USDT
+- UNI/USDT
+- ICP/USDT
+- APT/USDT
+- OP/USDT
+
+---
 
 ### ⚙️ Technical Features
 
-**Adaptability in Low Volatility:** Increases sensitivity to capture short retracements in bullish markets.
+- **Thread-Safe Architecture**  
+  Trading logic runs in a separate thread, preventing GUI freezes during order execution.
 
-**High Availability:**  Handles network (NetworkError) and exchange (ExchangeError) exceptions.
+- **Fail-Safe Position Recovery**  
+  If a temporary Binance connection issue occurs after a buy order, the bot preserves entry
+  data in memory and resumes position tracking automatically.
 
-**Real-Time Monitoring:** Professional console with dynamic status line showing PnL and tracked peak price.
+- **Null Data Protection**  
+  Candlestick data is validated before indicator calculations to prevent crashes caused by
+  incomplete or missing klines.
 
-**Data Optimization:** Vectorized calculations with Pandas for ultra-fast indicator processing.
+- **High Availability**  
+  Handles network and exchange exceptions without terminating execution.
+
+- **Real-Time Monitoring**  
+  Professional terminal output displaying live PnL, drawdown (DD), and tracked peak price.
+
+---
+
+### 🖥️ User Interface (UX)
+
+- Dark Mode optimized for long trading sessions
+- Anti-flicker terminal buffer for stable real-time visualization
+- Automatic mode switching:
+  - **Waiting Mode**
+  - **Position Management Mode** (live DD & Profit display)
+- Persistent favorites system using `favorites.json`
+
+---
 
 ### 🛠️ Technology Stack
 
-**Language:** Python 3.10+
+- **Language:** Python 3.10+
+- **Data Processing:** Pandas
+- **Exchange API:** CCXT (Binance)
+- **Build System:** PyInstaller
 
-**Data Science:** Pandas
-
-**API Connector:** CCXT (Binance)
-
-**Compilation:** PyInstaller
+---
 
 ### 📦 Installation & Setup
 
-**Clone the repository:**
-```
-git clone https://github.com/TakeshiDaiki/Binance_Boot.git
-cd Binance_Boot
+**Clone the repository**
+```bash
+git clone https://github.com/TakeshiDaiki/Zenvo-Engine-V1
+cd Zenvo-Engine-V1
 ```
 
-**Install dependencies:**
-```
+### Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-**Configure credentials:**
-
-Add your API Keys to .env or inside the core/ module.
-
-**Run the bot:**
-```
-python main.py
+### Run the bot
+```bash
+python gui.py
 ```
 
-**Create a production executable (.exe):**
-```
-pyinstaller --noconfirm --onefile --windowed --name "Zenvo_Engine_V1" --add-data "core;core" --add-data "logic;logic" main.py
-```
-### 📁 Project Structure
-```text
+#### 📁 Project Structure
+
 Binance_Bot/
 ├── core/                # Core connectivity modules
 │   ├── exchange.py      # Binance API and order management
 │   ├── risk.py          # Risk management logic
 │   └── __init__.py
-├── logic/               # Bot brain
-│   ├── indicators.py    # RSI, EMA, and metrics calculations
-│   ├── strategy.py      # Buy/sell signal definitions
+├── logic/               # Trading logic
+│   ├── indicators.py    # RSI, EMA and metrics calculations
+│   ├── strategy.py      # Entry and exit definitions
 │   └── __init__.py
 ├── gui.py               # Graphical user interface
-├── main.py              # Main engine orchestrator
-├── config.py            # Global configurations and parameters
+├── main.py              # Engine orchestrator
+├── config.py            # Global configurations
 ├── .env                 # Private credentials
-├── requirements.txt     # Required libraries
-├── README.md            # Technical documentation
+├── requirements.txt     # Dependencies
+├── README.md            # Documentation
 └── LICENSE              # MIT License
-```
-### 📄 License
 
-This project is under the MIT License. You may use, modify, and distribute freely.
+#### 📄 License
 
-### 👤 Author
+This project is released under the MIT License.
+You are free to use, modify, and distribute it.
+
+#### 👤 Author
 
 **Jose Salazar**
+
 **GitHub:** https://github.com/TakeshiDaiki
+
 **LinkedIn:** https://www.linkedin.com/in/jose-salazar
 
-### ⚠️ Disclaimer
+#### ⚠️ Disclaimer
 
-This software is a technical demonstration tool. Trading digital assets carries high risk. 
-The author is not responsible for any financial decisions made using this algorithm. Trade with caution.
+This software is a technical demonstration and research tool.
+Trading digital assets involves significant risk.
+The author assumes no responsibility for financial losses incurred through the use of this system.
+Trade responsibly.
