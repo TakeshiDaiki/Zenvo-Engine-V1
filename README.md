@@ -140,7 +140,7 @@ python gui.py
 ```
 
 #### 📁 Project Structure
-
+```text
 Binance_Bot/
 ├── core/                # Core connectivity modules
 │   ├── exchange.py      # Binance API and order management
@@ -157,7 +157,7 @@ Binance_Bot/
 ├── requirements.txt     # Dependencies
 ├── README.md            # Documentation
 └── LICENSE              # MIT License
-
+```
 #### 📄 License
 
 This project is released under the MIT License.
